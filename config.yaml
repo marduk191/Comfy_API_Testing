@@ -1,0 +1,35 @@
+# ComfyUI API Configuration
+comfyui:
+  host: "127.0.0.1"
+  port: 8188
+  protocol: "http"
+  timeout: 300
+
+# WebSocket configuration
+websocket:
+  enable: true
+  reconnect_attempts: 5
+  reconnect_delay: 2
+
+# Workflow settings
+workflow:
+  validate_before_send: true
+  auto_queue: true
+
+# Output settings
+output:
+  download_results: true
+  output_dir: "./outputs"
+  save_metadata: true
+
+# Batch processing
+batch:
+  max_concurrent: 3
+  retry_on_failure: true
+  max_retries: 3
+
+# Logging
+logging:
+  level: "INFO"
+  file: "./comfyui_api.log"
+  console: true

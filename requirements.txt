@@ -1,0 +1,22 @@
+# ComfyUI API Interface Requirements
+
+# Core dependencies
+pyyaml>=6.0
+websocket-client>=1.6.0
+
+# Optional dependencies for enhanced features
+# Uncomment if needed:
+
+# For better CLI output
+# rich>=13.0.0
+
+# For async operations
+# aiohttp>=3.8.0
+# asyncio>=3.4.3
+
+# For advanced image processing
+# pillow>=10.0.0
+# numpy>=1.24.0
+
+# For progress bars
+# tqdm>=4.65.0
