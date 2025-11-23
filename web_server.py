@@ -490,6 +490,15 @@ def send_to_nodes():
         workflow_json = request.form.get('workflow')
         workflow_name = request.form.get('workflow_name', 'Unknown')
 
+        # Debug logging
+        print(f"\n=== Send to Nodes Request ===")
+        print(f"Image node: {image_node_id}")
+        print(f"Positive prompt node: {positive_prompt_node_id}")
+        print(f"Negative prompt node: {negative_prompt_node_id}")
+        print(f"Positive prompt: {positive_prompt_text}")
+        print(f"Negative prompt: {negative_prompt_text}")
+        print(f"================================\n")
+
         # Validate inputs
         if not image_node_id:
             return jsonify({'error': 'No image node ID provided'}), 400
@@ -572,48 +581,76 @@ def send_to_nodes():
 
         # Update the positive prompt node
         positive_node = workflow[positive_prompt_node_id]
+
+        # Ensure inputs dict exists
+        if 'inputs' not in positive_node:
+            positive_node['inputs'] = {}
+
         text_param_names = ['text', 'prompt', 'string', 'description', 'caption', 'positive']
         positive_param_found = False
 
+        # Log current node structure for debugging
+        print(f"Positive node {positive_prompt_node_id} structure: {positive_node}")
+        print(f"Positive node inputs: {positive_node.get('inputs', {})}")
+
         for param_name in text_param_names:
-            if param_name in positive_node.get('inputs', {}):
+            if param_name in positive_node['inputs']:
+                print(f"Found matching param '{param_name}' in positive node")
                 positive_node['inputs'][param_name] = positive_prompt_text
                 positive_param_found = True
                 break
 
         # If not found, try any string parameter
         if not positive_param_found:
-            for key, value in positive_node.get('inputs', {}).items():
+            for key, value in positive_node['inputs'].items():
                 if isinstance(value, str):
+                    print(f"Using string param '{key}' in positive node")
                     positive_node['inputs'][key] = positive_prompt_text
                     positive_param_found = True
                     break
 
         # If still not found, add as new parameter
         if not positive_param_found:
+            print(f"Creating new 'text' param in positive node")
             positive_node['inputs']['text'] = positive_prompt_text
+
+        print(f"After update - Positive node inputs: {positive_node['inputs']}")
 
         # Update the negative prompt node
         negative_node = workflow[negative_prompt_node_id]
+
+        # Ensure inputs dict exists
+        if 'inputs' not in negative_node:
+            negative_node['inputs'] = {}
+
         negative_param_found = False
 
+        # Log current node structure for debugging
+        print(f"Negative node {negative_prompt_node_id} structure: {negative_node}")
+        print(f"Negative node inputs: {negative_node.get('inputs', {})}")
+
         for param_name in text_param_names:
-            if param_name in negative_node.get('inputs', {}):
+            if param_name in negative_node['inputs']:
+                print(f"Found matching param '{param_name}' in negative node")
                 negative_node['inputs'][param_name] = negative_prompt_text
                 negative_param_found = True
                 break
 
         # If not found, try any string parameter
         if not negative_param_found:
-            for key, value in negative_node.get('inputs', {}).items():
+            for key, value in negative_node['inputs'].items():
                 if isinstance(value, str):
+                    print(f"Using string param '{key}' in negative node")
                     negative_node['inputs'][key] = negative_prompt_text
                     negative_param_found = True
                     break
 
         # If still not found, add as new parameter
         if not negative_param_found:
+            print(f"Creating new 'text' param in negative node")
             negative_node['inputs']['text'] = negative_prompt_text
+
+        print(f"After update - Negative node inputs: {negative_node['inputs']}")
 
         # Validate workflow if enabled
         if config['workflow'].get('validate_before_send', True):
@@ -623,6 +660,13 @@ def send_to_nodes():
                     'error': 'Workflow validation failed after updating nodes',
                     'validation_errors': errors
                 }), 400
+
+        # Log final workflow state before sending
+        print(f"\n=== Final Workflow State ===")
+        print(f"Image node {image_node_id}: {workflow[image_node_id]}")
+        print(f"Positive node {positive_prompt_node_id}: {workflow[positive_prompt_node_id]}")
+        print(f"Negative node {negative_prompt_node_id}: {workflow[negative_prompt_node_id]}")
+        print(f"============================\n")
 
         # Execute workflow
         response = comfyui_client.queue_prompt(workflow)
