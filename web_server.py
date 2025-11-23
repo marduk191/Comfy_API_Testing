@@ -7,6 +7,7 @@ Flask-based web server for managing ComfyUI workflows
 import sys
 import json
 import uuid
+import tempfile
 from pathlib import Path
 from datetime import datetime
 from threading import Thread, Lock
@@ -522,13 +523,25 @@ def send_to_nodes():
             return jsonify({'error': f'Negative prompt node {negative_prompt_node_id} not found in workflow'}), 400
 
         # Upload image to ComfyUI
+        # Save uploaded file temporarily
         image_filename = secure_filename(image_file.filename)
-        image_result = comfyui_client.upload_image(image_file, subfolder='', overwrite=True)
+        temp_dir = Path(tempfile.gettempdir())
+        temp_image_path = temp_dir / image_filename
 
-        if not image_result or 'name' not in image_result:
-            return jsonify({'error': 'Failed to upload image to ComfyUI'}), 500
+        try:
+            image_file.save(str(temp_image_path))
 
-        uploaded_image_name = image_result['name']
+            # Upload to ComfyUI
+            image_result = comfyui_client.upload_image(temp_image_path, subfolder='', overwrite=True)
+
+            if not image_result or 'name' not in image_result:
+                return jsonify({'error': 'Failed to upload image to ComfyUI'}), 500
+
+            uploaded_image_name = image_result['name']
+        finally:
+            # Clean up temp file
+            if temp_image_path.exists():
+                temp_image_path.unlink()
 
         # Update the image node
         image_node = workflow[image_node_id]
