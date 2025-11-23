@@ -472,6 +472,171 @@ def cancel_job(job_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/send_to_node', methods=['POST'])
+def send_to_node():
+    """Send image and prompt to a specific node"""
+    try:
+        # Get form data
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image provided'}), 400
+
+        image_file = request.files['image']
+        node_id = request.form.get('node_id')
+        prompt_text = request.form.get('prompt')
+        workflow_json = request.form.get('workflow')
+        workflow_name = request.form.get('workflow_name', 'Unknown')
+
+        if not node_id:
+            return jsonify({'error': 'No node ID provided'}), 400
+
+        if not prompt_text:
+            return jsonify({'error': 'No prompt provided'}), 400
+
+        if not workflow_json:
+            return jsonify({'error': 'No workflow provided'}), 400
+
+        # Parse workflow
+        workflow = json.loads(workflow_json)
+
+        # Check if node exists
+        if node_id not in workflow:
+            return jsonify({'error': f'Node {node_id} not found in workflow'}), 400
+
+        # Upload image to ComfyUI
+        image_filename = secure_filename(image_file.filename)
+        image_result = comfyui_client.upload_image(image_file, subfolder='', overwrite=True)
+
+        if not image_result or 'name' not in image_result:
+            return jsonify({'error': 'Failed to upload image to ComfyUI'}), 500
+
+        uploaded_image_name = image_result['name']
+
+        # Update the workflow node with image and prompt
+        node = workflow[node_id]
+
+        # Try to find image input parameter (common names)
+        image_param_names = ['image', 'images', 'input_image', 'input', 'source_image', 'img']
+        image_param_found = False
+
+        for param_name in image_param_names:
+            if param_name in node.get('inputs', {}):
+                node['inputs'][param_name] = uploaded_image_name
+                image_param_found = True
+                break
+
+        # If no common image parameter found, try to set any parameter that looks like it accepts images
+        if not image_param_found:
+            for key, value in node.get('inputs', {}).items():
+                if isinstance(value, str) and (
+                    key.lower().endswith('image') or
+                    key.lower().startswith('image') or
+                    'img' in key.lower()
+                ):
+                    node['inputs'][key] = uploaded_image_name
+                    image_param_found = True
+                    break
+
+        # Try to find text/prompt input parameter
+        text_param_names = ['text', 'prompt', 'string', 'description', 'caption', 'positive']
+        text_param_found = False
+
+        for param_name in text_param_names:
+            if param_name in node.get('inputs', {}):
+                node['inputs'][param_name] = prompt_text
+                text_param_found = True
+                break
+
+        # If no common text parameter found, try to set any string parameter
+        if not text_param_found:
+            for key, value in node.get('inputs', {}).items():
+                if isinstance(value, str) and not image_param_found or key != list(node['inputs'].keys())[0]:
+                    node['inputs'][key] = prompt_text
+                    text_param_found = True
+                    break
+
+        # If neither parameter was found, add them to inputs
+        if not image_param_found:
+            node['inputs']['image'] = uploaded_image_name
+
+        if not text_param_found:
+            node['inputs']['text'] = prompt_text
+
+        # Validate workflow if enabled
+        if config['workflow'].get('validate_before_send', True):
+            is_valid, errors = workflow_mgr.validate_workflow(workflow)
+            if not is_valid:
+                return jsonify({
+                    'error': 'Workflow validation failed after updating node',
+                    'validation_errors': errors
+                }), 400
+
+        # Execute workflow
+        response = comfyui_client.queue_prompt(workflow)
+        prompt_id = response.get('prompt_id')
+
+        if not prompt_id:
+            return jsonify({'error': 'Failed to queue workflow'}), 500
+
+        # Track execution
+        execution_id = str(uuid.uuid4())
+        with execution_lock:
+            active_executions[execution_id] = {
+                'prompt_id': prompt_id,
+                'status': 'queued',
+                'started_at': time.time(),
+                'workflow_name': workflow_name,
+                'node_id': node_id,
+                'uploaded_image': uploaded_image_name
+            }
+
+        # Start monitoring in background
+        def monitor_execution():
+            try:
+                history = comfyui_client.wait_for_completion(prompt_id)
+
+                with execution_lock:
+                    if execution_id in active_executions:
+                        active_executions[execution_id]['status'] = 'completed'
+                        active_executions[execution_id]['history'] = history
+                        active_executions[execution_id]['completed_at'] = time.time()
+
+                # Extract images
+                images = extract_output_images(history)
+
+                socketio.emit('execution_completed', {
+                    'execution_id': execution_id,
+                    'prompt_id': prompt_id,
+                    'images': images
+                })
+
+            except Exception as e:
+                with execution_lock:
+                    if execution_id in active_executions:
+                        active_executions[execution_id]['status'] = 'failed'
+                        active_executions[execution_id]['error'] = str(e)
+
+                socketio.emit('execution_failed', {
+                    'execution_id': execution_id,
+                    'error': str(e)
+                })
+
+        Thread(target=monitor_execution, daemon=True).start()
+
+        return jsonify({
+            'success': True,
+            'execution_id': execution_id,
+            'prompt_id': prompt_id,
+            'uploaded_image': uploaded_image_name,
+            'node_id': node_id,
+            'image_param_found': image_param_found,
+            'text_param_found': text_param_found,
+            'message': f'Image and prompt sent to node {node_id}'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/interrupt', methods=['POST'])
 def interrupt_execution():
     """Interrupt current ComfyUI execution"""

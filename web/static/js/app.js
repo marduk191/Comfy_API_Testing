@@ -131,6 +131,11 @@ class ComfyUIApp {
         document.getElementById('refresh-history-btn').addEventListener('click', () => {
             this.refreshHistory();
         });
+
+        // Send to Node button
+        document.getElementById('send-to-node-btn').addEventListener('click', () => {
+            this.sendToNode();
+        });
     }
 
     // View Management
@@ -249,10 +254,35 @@ class ComfyUIApp {
             // Show common parameters (KSampler, text prompts, etc.)
             this.renderParametersEditor();
 
+            // Populate node selector
+            this.populateNodeSelector();
+
         } catch (error) {
             console.error('Failed to load workflow details:', error);
             this.showNotification('Error', 'Failed to load workflow details', 'error');
         }
+    }
+
+    populateNodeSelector() {
+        const nodeSelect = document.getElementById('node-select');
+        const workflow = this.selectedWorkflow.workflow;
+
+        nodeSelect.innerHTML = '<option value="">-- Select a node --</option>';
+
+        // Add all nodes to the selector
+        for (const [nodeId, nodeData] of Object.entries(workflow)) {
+            const option = document.createElement('option');
+            option.value = nodeId;
+            const title = nodeData.title || nodeData._meta?.title || nodeData.class_type;
+            option.textContent = `Node ${nodeId} (${title})`;
+            nodeSelect.appendChild(option);
+        }
+
+        // Enable the node input controls
+        nodeSelect.disabled = false;
+        document.getElementById('node-image-input').disabled = false;
+        document.getElementById('node-prompt-input').disabled = false;
+        document.getElementById('send-to-node-btn').disabled = false;
     }
 
     renderParametersEditor() {
@@ -593,6 +623,70 @@ class ComfyUIApp {
                 }
             });
         });
+    }
+
+    async sendToNode() {
+        if (!this.selectedWorkflow) {
+            this.showNotification('Error', 'Please select a workflow first', 'error');
+            return;
+        }
+
+        const nodeId = document.getElementById('node-select').value;
+        const imageInput = document.getElementById('node-image-input');
+        const promptText = document.getElementById('node-prompt-input').value;
+
+        // Validate inputs
+        if (!nodeId) {
+            this.showNotification('Error', 'Please select a node', 'error');
+            return;
+        }
+
+        if (!imageInput.files || imageInput.files.length === 0) {
+            this.showNotification('Error', 'Please select an image file', 'error');
+            return;
+        }
+
+        if (!promptText.trim()) {
+            this.showNotification('Error', 'Please enter a prompt', 'error');
+            return;
+        }
+
+        // Create FormData for upload
+        const formData = new FormData();
+        formData.append('image', imageInput.files[0]);
+        formData.append('node_id', nodeId);
+        formData.append('prompt', promptText);
+        formData.append('workflow', JSON.stringify(this.selectedWorkflow.workflow));
+        formData.append('workflow_name', this.selectedWorkflow.filename);
+
+        try {
+            const response = await fetch('/api/send_to_node', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('Success',
+                    `Image and prompt sent to node ${nodeId}. Execution ID: ${data.execution_id}`,
+                    'success');
+
+                // Subscribe to execution updates
+                this.socket.emit('subscribe_execution', {
+                    execution_id: data.execution_id
+                });
+
+                // Clear inputs
+                imageInput.value = '';
+                document.getElementById('node-prompt-input').value = '';
+            } else {
+                this.showNotification('Error', data.error || 'Failed to send to node', 'error');
+            }
+        } catch (error) {
+            console.error('Send to node failed:', error);
+            this.showNotification('Error', error.message, 'error');
+        }
     }
 
     // Helper Functions
