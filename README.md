@@ -1,10 +1,21 @@
 # ComfyUI Advanced API Interface
 
-A comprehensive, production-ready interface for sending and managing ComfyUI workflows via API. This tool provides advanced features including WebSocket support for real-time progress monitoring, batch processing, workflow templating, and queue management.
+A comprehensive, production-ready interface for sending and managing ComfyUI workflows via API. This tool provides advanced features including **a modern web interface**, WebSocket support for real-time progress monitoring, batch processing, workflow templating, and queue management.
+
+## 🌐 Web Interface Available!
+
+Access a beautiful, real-time web interface for managing your ComfyUI workflows:
+```bash
+python web_server.py
+```
+Then open `http://localhost:5000` in your browser.
+
+See [WEB_INTERFACE.md](WEB_INTERFACE.md) for detailed documentation.
 
 ## Features
 
 ### 🚀 Core Features
+- **🌐 Web Interface**: Modern, real-time web UI with WebSocket updates
 - **Full API Client**: Complete implementation of ComfyUI API endpoints
 - **WebSocket Support**: Real-time progress monitoring and execution updates
 - **Workflow Management**: Load, validate, modify, and save workflows
@@ -18,6 +29,7 @@ A comprehensive, production-ready interface for sending and managing ComfyUI wor
 
 ### 📦 Components
 
+- **Web Interface**: Modern web UI with real-time monitoring (`web_server.py`)
 - **`ComfyUIClient`**: Core API client with WebSocket support
 - **`WorkflowManager`**: Workflow loading, validation, and templating
 - **`QueueManager`**: Batch processing and job queue management
@@ -51,6 +63,30 @@ comfyui:
 ```
 
 ## Quick Start
+
+### Using the Web Interface (Recommended)
+
+1. **Start the web server:**
+```bash
+python web_server.py
+```
+
+2. **Open in browser:**
+```
+http://localhost:5000
+```
+
+3. **Upload a workflow:**
+   - Click "Upload Workflow"
+   - Select a ComfyUI workflow JSON file (exported in API format)
+   - Click "Execute" to run it
+
+4. **Monitor in real-time:**
+   - View queue status
+   - See live execution progress
+   - Download generated images
+
+📖 **Full web interface documentation:** [WEB_INTERFACE.md](WEB_INTERFACE.md)
 
 ### Using the CLI
 
@@ -380,6 +416,15 @@ logging:
 
 ```
 Comfy_API_Testing/
+├── web_server.py             # Web interface server
+├── web/                      # Web interface files
+│   ├── templates/
+│   │   └── index.html        # Main web page
+│   └── static/
+│       ├── css/
+│       │   └── style.css     # Styles
+│       └── js/
+│           └── app.js        # Client application
 ├── src/
 │   ├── __init__.py           # Package initialization
 │   ├── client.py             # ComfyUI API client
@@ -395,7 +440,8 @@ Comfy_API_Testing/
 ├── config.yaml               # Configuration file
 ├── comfyui_cli.py           # CLI interface
 ├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+├── README.md                 # This file
+└── WEB_INTERFACE.md         # Web interface docs
 ```
 
 ## Examples
