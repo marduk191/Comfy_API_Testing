@@ -107,6 +107,38 @@
                                 Execute Workflow
                             </button>
                         </div>
+
+                        <!-- Image & Prompt to Node Section -->
+                        <div class="form-group" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #ddd;">
+                            <h3>Send Image & Prompt to Specific Node</h3>
+                            <p style="color: #666; font-size: 0.9em; margin-bottom: 1rem;">
+                                Upload an image and prompt to send to a specific node in your workflow
+                            </p>
+
+                            <div class="form-group">
+                                <label>Select Node ID:</label>
+                                <select id="node-select" class="form-control" disabled>
+                                    <option value="">-- Select a workflow first --</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Upload Image:</label>
+                                <input type="file" id="node-image-input" class="form-control" accept="image/*" disabled>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Prompt Text:</label>
+                                <textarea id="node-prompt-input" class="form-control" rows="4" placeholder="Enter your prompt..." disabled></textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <button id="send-to-node-btn" class="btn btn-primary btn-large" disabled>
+                                    <span class="icon">📤</span>
+                                    Send to Node
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
