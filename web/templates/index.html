@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI API Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🎨 ComfyUI API Interface</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">ComfyUI:</span>
+                    <span id="comfyui-status" class="status-value">Connecting...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Queue:</span>
+                    <span id="queue-status" class="status-value">0 running / 0 pending</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav>
+                    <button class="nav-btn active" data-view="workflows">
+                        <span class="icon">📁</span>
+                        Workflows
+                    </button>
+                    <button class="nav-btn" data-view="execute">
+                        <span class="icon">▶️</span>
+                        Execute
+                    </button>
+                    <button class="nav-btn" data-view="queue">
+                        <span class="icon">📋</span>
+                        Queue
+                    </button>
+                    <button class="nav-btn" data-view="history">
+                        <span class="icon">🕐</span>
+                        History
+                    </button>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <main class="content">
+                <!-- Workflows View -->
+                <div id="workflows-view" class="view active">
+                    <div class="view-header">
+                        <h2>Workflows</h2>
+                        <div class="actions">
+                            <button id="upload-btn" class="btn btn-primary">
+                                <span class="icon">⬆️</span>
+                                Upload Workflow
+                            </button>
+                            <button id="refresh-workflows-btn" class="btn btn-secondary">
+                                <span class="icon">🔄</span>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <input type="file" id="file-input" accept=".json" style="display: none;">
+
+                    <div id="workflows-list" class="workflows-list">
+                        <div class="loading">Loading workflows...</div>
+                    </div>
+                </div>
+
+                <!-- Execute View -->
+                <div id="execute-view" class="view">
+                    <div class="view-header">
+                        <h2>Execute Workflow</h2>
+                    </div>
+
+                    <div class="execute-container">
+                        <div class="form-group">
+                            <label>Select Workflow:</label>
+                            <select id="workflow-select" class="form-control">
+                                <option value="">-- Select a workflow --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Workflow Preview:</label>
+                            <div id="workflow-preview" class="workflow-preview">
+                                <div class="placeholder">Select a workflow to see details</div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Parameters (Optional):</label>
+                            <div id="parameters-editor" class="parameters-editor">
+                                <div class="placeholder">No parameters to edit</div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="execute-btn" class="btn btn-primary btn-large" disabled>
+                                <span class="icon">▶️</span>
+                                Execute Workflow
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Queue View -->
+                <div id="queue-view" class="view">
+                    <div class="view-header">
+                        <h2>Queue Status</h2>
+                        <div class="actions">
+                            <button id="clear-queue-btn" class="btn btn-secondary">
+                                <span class="icon">🗑️</span>
+                                Clear Completed
+                            </button>
+                            <button id="refresh-queue-btn" class="btn btn-secondary">
+                                <span class="icon">🔄</span>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="queue-stats" id="queue-stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-total">0</div>
+                            <div class="stat-label">Total Jobs</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-running">0</div>
+                            <div class="stat-label">Running</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-pending">0</div>
+                            <div class="stat-label">Pending</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-completed">0</div>
+                            <div class="stat-label">Completed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-failed">0</div>
+                            <div class="stat-label">Failed</div>
+                        </div>
+                    </div>
+
+                    <div id="queue-list" class="queue-list">
+                        <div class="loading">Loading queue...</div>
+                    </div>
+                </div>
+
+                <!-- History View -->
+                <div id="history-view" class="view">
+                    <div class="view-header">
+                        <h2>Execution History</h2>
+                        <div class="actions">
+                            <button id="refresh-history-btn" class="btn btn-secondary">
+                                <span class="icon">🔄</span>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="history-list" class="history-list">
+                        <div class="loading">Loading history...</div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Workflow Details Modal -->
+    <div id="workflow-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-workflow-title">Workflow Details</h3>
+                <button class="close-btn" onclick="closeModal('workflow-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="workflow-modal-body">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('workflow-modal')">Close</button>
+                <button class="btn btn-primary" id="modal-execute-btn">Execute</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execution Results Modal -->
+    <div id="results-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Execution Results</h3>
+                <button class="close-btn" onclick="closeModal('results-modal')">&times;</button>
+            </div>
+            <div class="modal-body" id="results-modal-body">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('results-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notifications" class="notifications"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
