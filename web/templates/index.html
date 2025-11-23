@@ -110,14 +110,14 @@
 
                         <!-- Image & Prompt to Node Section -->
                         <div class="form-group" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #ddd;">
-                            <h3>Send Image & Prompt to Specific Node</h3>
+                            <h3>Send Image & Prompts to Nodes</h3>
                             <p style="color: #666; font-size: 0.9em; margin-bottom: 1rem;">
-                                Upload an image and prompt to send to a specific node in your workflow
+                                Upload an image to one node and send prompts to two separate nodes in your workflow
                             </p>
 
                             <div class="form-group">
-                                <label>Select Node ID:</label>
-                                <select id="node-select" class="form-control" disabled>
+                                <label>Image Node (select node for image input):</label>
+                                <select id="image-node-select" class="form-control" disabled>
                                     <option value="">-- Select a workflow first --</option>
                                 </select>
                             </div>
@@ -128,14 +128,33 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Prompt Text:</label>
-                                <textarea id="node-prompt-input" class="form-control" rows="4" placeholder="Enter your prompt..." disabled></textarea>
+                                <label>Positive Prompt Node (select node for positive prompt):</label>
+                                <select id="positive-prompt-node-select" class="form-control" disabled>
+                                    <option value="">-- Select a workflow first --</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Positive Prompt Text:</label>
+                                <textarea id="positive-prompt-input" class="form-control" rows="4" placeholder="Enter positive prompt..." disabled></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Negative Prompt Node (select node for negative prompt):</label>
+                                <select id="negative-prompt-node-select" class="form-control" disabled>
+                                    <option value="">-- Select a workflow first --</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Negative Prompt Text:</label>
+                                <textarea id="negative-prompt-input" class="form-control" rows="4" placeholder="Enter negative prompt..." disabled></textarea>
                             </div>
 
                             <div class="form-actions">
                                 <button id="send-to-node-btn" class="btn btn-primary btn-large" disabled>
                                     <span class="icon">📤</span>
-                                    Send to Node
+                                    Send to Nodes
                                 </button>
                             </div>
                         </div>

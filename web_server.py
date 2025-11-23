@@ -472,25 +472,38 @@ def cancel_job(job_id):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/send_to_node', methods=['POST'])
-def send_to_node():
-    """Send image and prompt to a specific node"""
+@app.route('/api/send_to_nodes', methods=['POST'])
+def send_to_nodes():
+    """Send image to one node and prompts to two separate nodes"""
     try:
         # Get form data
         if 'image' not in request.files:
             return jsonify({'error': 'No image provided'}), 400
 
         image_file = request.files['image']
-        node_id = request.form.get('node_id')
-        prompt_text = request.form.get('prompt')
+        image_node_id = request.form.get('image_node_id')
+        positive_prompt_node_id = request.form.get('positive_prompt_node_id')
+        negative_prompt_node_id = request.form.get('negative_prompt_node_id')
+        positive_prompt_text = request.form.get('positive_prompt')
+        negative_prompt_text = request.form.get('negative_prompt')
         workflow_json = request.form.get('workflow')
         workflow_name = request.form.get('workflow_name', 'Unknown')
 
-        if not node_id:
-            return jsonify({'error': 'No node ID provided'}), 400
+        # Validate inputs
+        if not image_node_id:
+            return jsonify({'error': 'No image node ID provided'}), 400
 
-        if not prompt_text:
-            return jsonify({'error': 'No prompt provided'}), 400
+        if not positive_prompt_node_id:
+            return jsonify({'error': 'No positive prompt node ID provided'}), 400
+
+        if not negative_prompt_node_id:
+            return jsonify({'error': 'No negative prompt node ID provided'}), 400
+
+        if not positive_prompt_text:
+            return jsonify({'error': 'No positive prompt provided'}), 400
+
+        if not negative_prompt_text:
+            return jsonify({'error': 'No negative prompt provided'}), 400
 
         if not workflow_json:
             return jsonify({'error': 'No workflow provided'}), 400
@@ -498,9 +511,15 @@ def send_to_node():
         # Parse workflow
         workflow = json.loads(workflow_json)
 
-        # Check if node exists
-        if node_id not in workflow:
-            return jsonify({'error': f'Node {node_id} not found in workflow'}), 400
+        # Check if all nodes exist
+        if image_node_id not in workflow:
+            return jsonify({'error': f'Image node {image_node_id} not found in workflow'}), 400
+
+        if positive_prompt_node_id not in workflow:
+            return jsonify({'error': f'Positive prompt node {positive_prompt_node_id} not found in workflow'}), 400
+
+        if negative_prompt_node_id not in workflow:
+            return jsonify({'error': f'Negative prompt node {negative_prompt_node_id} not found in workflow'}), 400
 
         # Upload image to ComfyUI
         image_filename = secure_filename(image_file.filename)
@@ -511,62 +530,84 @@ def send_to_node():
 
         uploaded_image_name = image_result['name']
 
-        # Update the workflow node with image and prompt
-        node = workflow[node_id]
-
-        # Try to find image input parameter (common names)
+        # Update the image node
+        image_node = workflow[image_node_id]
         image_param_names = ['image', 'images', 'input_image', 'input', 'source_image', 'img']
         image_param_found = False
 
         for param_name in image_param_names:
-            if param_name in node.get('inputs', {}):
-                node['inputs'][param_name] = uploaded_image_name
+            if param_name in image_node.get('inputs', {}):
+                image_node['inputs'][param_name] = uploaded_image_name
                 image_param_found = True
                 break
 
-        # If no common image parameter found, try to set any parameter that looks like it accepts images
+        # If no common image parameter found, try pattern matching
         if not image_param_found:
-            for key, value in node.get('inputs', {}).items():
+            for key, value in image_node.get('inputs', {}).items():
                 if isinstance(value, str) and (
                     key.lower().endswith('image') or
                     key.lower().startswith('image') or
                     'img' in key.lower()
                 ):
-                    node['inputs'][key] = uploaded_image_name
+                    image_node['inputs'][key] = uploaded_image_name
                     image_param_found = True
                     break
 
-        # Try to find text/prompt input parameter
+        # If still not found, add as new parameter
+        if not image_param_found:
+            image_node['inputs']['image'] = uploaded_image_name
+
+        # Update the positive prompt node
+        positive_node = workflow[positive_prompt_node_id]
         text_param_names = ['text', 'prompt', 'string', 'description', 'caption', 'positive']
-        text_param_found = False
+        positive_param_found = False
 
         for param_name in text_param_names:
-            if param_name in node.get('inputs', {}):
-                node['inputs'][param_name] = prompt_text
-                text_param_found = True
+            if param_name in positive_node.get('inputs', {}):
+                positive_node['inputs'][param_name] = positive_prompt_text
+                positive_param_found = True
                 break
 
-        # If no common text parameter found, try to set any string parameter
-        if not text_param_found:
-            for key, value in node.get('inputs', {}).items():
-                if isinstance(value, str) and not image_param_found or key != list(node['inputs'].keys())[0]:
-                    node['inputs'][key] = prompt_text
-                    text_param_found = True
+        # If not found, try any string parameter
+        if not positive_param_found:
+            for key, value in positive_node.get('inputs', {}).items():
+                if isinstance(value, str):
+                    positive_node['inputs'][key] = positive_prompt_text
+                    positive_param_found = True
                     break
 
-        # If neither parameter was found, add them to inputs
-        if not image_param_found:
-            node['inputs']['image'] = uploaded_image_name
+        # If still not found, add as new parameter
+        if not positive_param_found:
+            positive_node['inputs']['text'] = positive_prompt_text
 
-        if not text_param_found:
-            node['inputs']['text'] = prompt_text
+        # Update the negative prompt node
+        negative_node = workflow[negative_prompt_node_id]
+        negative_param_found = False
+
+        for param_name in text_param_names:
+            if param_name in negative_node.get('inputs', {}):
+                negative_node['inputs'][param_name] = negative_prompt_text
+                negative_param_found = True
+                break
+
+        # If not found, try any string parameter
+        if not negative_param_found:
+            for key, value in negative_node.get('inputs', {}).items():
+                if isinstance(value, str):
+                    negative_node['inputs'][key] = negative_prompt_text
+                    negative_param_found = True
+                    break
+
+        # If still not found, add as new parameter
+        if not negative_param_found:
+            negative_node['inputs']['text'] = negative_prompt_text
 
         # Validate workflow if enabled
         if config['workflow'].get('validate_before_send', True):
             is_valid, errors = workflow_mgr.validate_workflow(workflow)
             if not is_valid:
                 return jsonify({
-                    'error': 'Workflow validation failed after updating node',
+                    'error': 'Workflow validation failed after updating nodes',
                     'validation_errors': errors
                 }), 400
 
@@ -585,7 +626,9 @@ def send_to_node():
                 'status': 'queued',
                 'started_at': time.time(),
                 'workflow_name': workflow_name,
-                'node_id': node_id,
+                'image_node_id': image_node_id,
+                'positive_prompt_node_id': positive_prompt_node_id,
+                'negative_prompt_node_id': negative_prompt_node_id,
                 'uploaded_image': uploaded_image_name
             }
 
@@ -627,10 +670,13 @@ def send_to_node():
             'execution_id': execution_id,
             'prompt_id': prompt_id,
             'uploaded_image': uploaded_image_name,
-            'node_id': node_id,
+            'image_node_id': image_node_id,
+            'positive_prompt_node_id': positive_prompt_node_id,
+            'negative_prompt_node_id': negative_prompt_node_id,
             'image_param_found': image_param_found,
-            'text_param_found': text_param_found,
-            'message': f'Image and prompt sent to node {node_id}'
+            'positive_param_found': positive_param_found,
+            'negative_param_found': negative_param_found,
+            'message': f'Image sent to node {image_node_id}, prompts sent to nodes {positive_prompt_node_id} and {negative_prompt_node_id}'
         })
 
     except Exception as e:
